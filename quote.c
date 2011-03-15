@@ -26,7 +26,11 @@
 #include <SWI-Prolog.h>
 #include <stdlib.h>
 #ifdef HAVE_MALLOC_H
+#if __YAP_PROLOG__
+#include <malloc.h>
+#else
 #include HAVE_MALLOC_H
+#endif
 #endif
 #include "error.h"
 #include <errno.h>
