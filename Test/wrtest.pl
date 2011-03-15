@@ -16,6 +16,7 @@
 :- asserta(file_search_path(foreign, '..')).
 :- asserta(file_search_path(library, '..')).
 
+:- use_module(library(lists)).
 :- use_module(library(sgml)).
 :- use_module(library(sgml_write)).
 
