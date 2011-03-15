@@ -4,42 +4,8 @@
 # Copyright: LGPL (see COPYING or www.gnu.org
 ################################################################
 
-.SUFFIXES: .tex .dvi .doc .pl
-
-PL=@PL@
-LD=@LD@
-PLLD=@PLLD@
-PLBASE=@PLBASE@
-PLARCH=@PLARCH@
-PKGDOC=$(PLBASE)/doc/packages
-PCEHOME=../xpce
-PLLIB=$(PLBASE)/library
-PLFOREIGN=$(PLBASE)/lib/$(PLARCH)
-SO=@SO@
-
-PUBLICPL=swipl
-DOCTOTEX=$(PCEHOME)/bin/doc2tex
-PLTOTEX=$(PUBLICPL) -q -s pltotex.pl -g pltotex --
-LATEX=latex
-DOC=sgml
-TEX=$(DOC).tex xpath.tex pwp.tex
-DVI=$(DOC).dvi
-PDF=$(DOC).pdf
-HTML=$(DOC).html
-
-CC=@CC@
-COFLAGS=@COFLAGS@
-CWFLAGS=@CWFLAGS@
-CMFLAGS=@CMFLAGS@
-CIFLAGS=-I. -I@PLINCL@
-CFLAGS=$(COFLAGS) $(CWFLAGS) $(CMFLAGS) $(CIFLAGS) @DEFS@
-LDFLAGS=$(COFLAGS)
-
-LDSOFLAGS=@LDSOFLAGS@
-
-INSTALL=@INSTALL@
-INSTALL_PROGRAM=@INSTALL_PROGRAM@
-INSTALL_DATA=@INSTALL_DATA@
+PACKAGE=sgml
+include ../Makefile.defs
 
 LIBOBJ=		parser.o util.o charmap.o catalog.o model.o xmlns.o utf8.o \
 		xml_unicode.o
@@ -67,12 +33,12 @@ coflags::
 		@echo $(COFLAGS) > .coflags
 
 sgml2pl.@SO@:	$(PLOBJ)
-		$(PLLD) -shared -o $@ $(PLOBJ)
+		$(LD) $(LDFLAGS) -o $@ $(PLOBJ) @LIBS@
 
-install:	$(TARGETS) $(LIBPL) install-dtd
-		mkdir -p $(DESTDIR)$(PLBASE)/lib/$(PLARCH)
-		$(INSTALL_PROGRAM) $(TARGETS) $(DESTDIR)$(PLFOREIGN)
-		$(INSTALL_DATA) $(LIBPL) $(DESTDIR)$(PLLIB)
+install:	$(TARGETS) $(addprefix $(srcdir)/, $(LIBPL)) install-dtd
+		mkdir -p $(DESTDIR)$(SOLIBDIR)
+		$(INSTALL_PROGRAM) $(TARGETS) $(DESTDIR)$(SOLIBDIR)
+		$(INSTALL_DATA) $(addprefix $(srcdir)/, $(LIBPL)) $(DESTDIR)$(PLLIBDIR)
 		$(PL) -f none -g make -t halt
 
 ln-install::
@@ -83,9 +49,9 @@ ln-install::
 rpm-install:	install
 
 install-dtd::
-		mkdir -p $(DESTDIR)$(PLBASE)/library/DTD
+		mkdir -p $(DESTDIR)$(PLLIBDIR)/DTD
 		for f in $(DTDFILES); do \
-		   $(INSTALL_DATA) DTD/$$f $(DESTDIR)$(PLBASE)/library/DTD; \
+		   $(INSTALL_DATA) $(srcdir)/DTD/$$f $(DESTDIR)$(PLLIBDIR)/DTD; \
 		done
 
 pdf-install::
@@ -97,12 +63,12 @@ html-install::
 		$(INSTALL_DATA) sgml.html $(DESTDIR)$(PKGDOC)
 
 check::
-		$(PL) -f Test/test.pl -g test,halt
-		$(PL) -f Test/wrtest.pl -g test,halt
+		( cd $(srcdir) && $(PL) -f Test/test.pl -g test,halt )
+		( cd $(srcdir) && $(PL) -f Test/wrtest.pl -g test,halt )
 
 uninstall::
-		(cd $(PLBASE)/lib/$(PLARCH) && rm -f $(TARGETS))
-		(cd $(PLBASE)/library && rm -f $(LIBPL))
+		(cd $(SOLIBDIR) && rm -f $(TARGETS))
+		(cd $(PLLIBDIR) && rm -f $(LIBPL))
 		$(PL) -f none -g make -t halt
 
 dtd2pl:		$(DTD2PLOBJ)
@@ -113,16 +79,12 @@ sgml:		$(SGMLOBJ)
 
 tags:		TAGS
 
-TAGS:		$(ALLCSRC)
-		etags $(ALLCSRC)
+TAGS:		$(addprefix $(srcdir)/, $(ALLCSRC))
+		etags $(addprefix $(srcdir)/, $(ALLCSRC))
 
 ################################################################
 # Documentation
 ################################################################
-
-doc:		$(PDF) $(HTML)
-pdf:		$(PDF)
-html:		$(HTML)
 
 $(HTML):	$(TEX)
 		latex2html $(DOC)
