@@ -26,6 +26,8 @@
 :- asserta(user:file_search_path(foreign, '..')).
 :- use_module(library(sgml)).
 :- use_module(library(pretty_print)).
+:- use_module(library(maplist)).
+:- use_module(library(lists)).
 
 
 test :-
