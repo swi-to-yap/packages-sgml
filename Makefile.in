@@ -33,7 +33,7 @@ coflags::
 		@echo $(COFLAGS) > .coflags
 
 sgml2pl.@SO@:	$(PLOBJ)
-		$(LD) $(LDFLAGS) -o $@ $(PLOBJ) @LIBS@
+		$(LD) $(LDSOFLAGS) -o $@ $(PLOBJ) $(LIBS)
 
 install:	$(TARGETS) $(addprefix $(srcdir)/, $(LIBPL)) install-dtd
 		mkdir -p $(DESTDIR)$(SOLIBDIR)
