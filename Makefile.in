@@ -86,15 +86,15 @@ TAGS:		$(addprefix $(srcdir)/, $(ALLCSRC))
 # Documentation
 ################################################################
 
-$(HTML):	$(TEX)
-		latex2html $(DOC)
-		mv html/index.html $@
-		rmdir html
+# $(HTML):	$(TEX)
+# 		latex2html $(DOC)
+# 		mv html/index.html $@
+# 		rmdir html
 
-$(PDF):		$(TEX)
-		../../man/runtex --pdf $(DOC)
+# $(PDF):		$(TEX)
+# 		../../man/runtex --pdf $(DOC)
 
-$(TEX):		$(DOCTOTEX)
+# $(TEX):		$(DOCTOTEX)
 
 xpath.tex:	xpath.pl
 		$(PLTOTEX) --out=$@ --section 'library(xpath)'
