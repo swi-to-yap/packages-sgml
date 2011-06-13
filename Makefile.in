@@ -5,6 +5,8 @@
 ################################################################
 
 PACKAGE=sgml
+DOC=sgml
+SUBTEX=xpath.tex pwp.tex
 include ../Makefile.defs
 
 LIBOBJ=		parser.o util.o charmap.o catalog.o model.o xmlns.o utf8.o \
@@ -82,30 +84,11 @@ tags:		TAGS
 TAGS:		$(addprefix $(srcdir)/, $(ALLCSRC))
 		etags $(addprefix $(srcdir)/, $(ALLCSRC))
 
-################################################################
-# Documentation
-################################################################
-
-$(HTML):	$(TEX)
-		latex2html $(DOC)
-		mv html/index.html $@
-		rmdir html
-
-$(PDF):		$(TEX)
-		../../man/runtex --pdf $(DOC)
-
-$(TEX):		$(DOCTOTEX)
-
-xpath.tex:	xpath.pl
+xpath.tex:	$(srcdir)/xpath.pl
 		$(PLTOTEX) --out=$@ --section 'library(xpath)'
 
-pwp.tex:	pwp.pl
+pwp.tex:	$(srcdir)/pwp.pl
 		$(PLTOTEX) --out=$@ --section 'library(pwp)'
-
-.doc.tex:
-		$(DOCTOTEX) $*.doc > $*.tex
-.pl.tex:
-		$(PLTOTEX) $*.pl > $*.tex
 
 docclean::
 		rm -f $(TEX)
