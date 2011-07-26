@@ -2611,5 +2611,8 @@ install()
 
 install_t
 uninstall()
-{ stop_ring();
+{ 
+#ifdef _REENTRANT
+  stop_ring();
+#endif
 }
