@@ -100,7 +100,7 @@ docclean::
 ################################################################
 
 clean::
-		rm -f $(PLOBJ) *~ *.o *% a.out core config.log
+		rm -f $(PLOBJ) *~ *.o *% a.out core config.log sgml.pdf sgml.html $(TEX)
 
 distclean:	clean
 		rm -f $(TARGETS) $(PROGRAMS)
