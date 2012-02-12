@@ -1,13 +1,13 @@
 ################################################################
-# SWI-Prolog `sgml2pl' package
-# Author:    Jan Wielemaker. jan@swi.psy.uva.nl
+# SWI-Prolog `sgml' package
+# Author:    Jan Wielemaker. J.Wielemaker@vu.nl
 # Copyright: LGPL (see COPYING or www.gnu.org
 ################################################################
 
 PACKAGE=sgml
 DOC=sgml
-SUBTEX=xpath.tex pwp.tex
 include ../Makefile.defs
+CFLAGS+= -I.
 
 LIBOBJ=		parser.o util.o charmap.o catalog.o model.o xmlns.o utf8.o \
 		xml_unicode.o
@@ -25,23 +25,20 @@ ALLCSRC=	$(LIBOBJ:.o=.c) \
 LIBPL=		sgml.pl xsdp_types.pl iso_639.pl sgml_write.pl xpath.pl \
 		pwp.pl
 TARGETS=	sgml2pl.@SO@
-PROGRAMS=	dtd2pl sgml
+PROGRAMS=	dtd2pl$(EXEEXT) sgml$(EXEEXT)
 DTDFILES=	HTML4.dcl HTML4.dtd HTML4.soc \
 		HTMLlat1.ent HTMLspec.ent HTMLsym.ent
 
-all:		coflags $(TARGETS) $(PROGRAMS)
-
-coflags::
-		@echo $(COFLAGS) > .coflags
+all:		$(TARGETS) $(PROGRAMS)
 
 sgml2pl.@SO@:	$(PLOBJ)
 		$(LD) $(LDSOFLAGS) -o $@ $(PLOBJ) $(LIBS)
 
-install:	$(TARGETS) $(addprefix $(srcdir)/, $(LIBPL)) install-dtd
+install:	$(TARGETS) $(LIBPL) install-dtd
 		mkdir -p $(DESTDIR)$(SOLIBDIR)
-		$(INSTALL_PROGRAM) $(TARGETS) $(DESTDIR)$(SOLIBDIR)
-		$(INSTALL_DATA) $(addprefix $(srcdir)/, $(LIBPL)) $(DESTDIR)$(PLLIBDIR)
-		$(PL) -f none -g make -t halt
+		$(INSTALL_PROGRAM) $(TARGETS) $(DESTDIR)$(SOLIBDIR);
+		$(INSTALL_DATA) $(LIBPL) $(DESTDIR)$(PLLIBDIR)
+		$(MKINDEX)
 
 ln-install::
 		@$(MAKE) INSTALL_DATA=../ln-install \
@@ -51,9 +48,9 @@ ln-install::
 rpm-install:	install
 
 install-dtd::
-		mkdir -p $(DESTDIR)$(PLLIBDIR)/DTD
+		mkdir -p $(DESTDIR)$(PLBASE)/library/DTD
 		for f in $(DTDFILES); do \
-		   $(INSTALL_DATA) $(srcdir)/DTD/$$f $(DESTDIR)$(PLLIBDIR)/DTD; \
+		   $(INSTALL_DATA) DTD/$$f $(DESTDIR)$(PLBASE)/library/DTD; \
 		done
 
 pdf-install::
@@ -65,45 +62,47 @@ html-install::
 		$(INSTALL_DATA) sgml.html $(DESTDIR)$(PKGDOC)
 
 check::
-		( cd $(srcdir) && $(PL) -f Test/test.pl -g test,halt )
-		( cd $(srcdir) && $(PL) -f Test/wrtest.pl -g test,halt )
+		$(PL) -f Test/test.pl -g test,halt
+		$(PL) -f Test/wrtest.pl -g test,halt
 
 uninstall::
-		(cd $(SOLIBDIR) && rm -f $(TARGETS))
-		(cd $(PLLIBDIR) && rm -f $(LIBPL))
+		(cd $(PLBASE)/$(SOLIB)/$(INSTALL_PLARCH) && rm -f $(TARGETS))
+		(cd $(PLBASE)/library && rm -f $(LIBPL))
 		$(PL) -f none -g make -t halt
 
-dtd2pl:		$(DTD2PLOBJ)
-		$(LD) $(LDFLAGS) -o $@ $(DTD2PLOBJ)
+dtd2pl$(EXEEXT): $(DTD2PLOBJ)
+		$(LD) $(LDFLAGS) -o $@ $(DTD2PLOBJ) $(LIBS)
 
-sgml:		$(SGMLOBJ)
-		$(LD) $(LDFLAGS) -o $@ $(SGMLOBJ)
+sgml$(EXEEXT):	$(SGMLOBJ)
+		$(LD) $(LDFLAGS) -o $@ $(SGMLOBJ) $(LIBS)
 
 tags:		TAGS
 
-TAGS:		$(addprefix $(srcdir)/, $(ALLCSRC))
-		etags $(addprefix $(srcdir)/, $(ALLCSRC))
+TAGS:		$(ALLCSRC)
+		etags $(ALLCSRC)
 
-xpath.tex:	$(srcdir)/xpath.pl
+################################################################
+# Documentation
+################################################################
+
+TEXEXTRA=	xpath.tex pwp.tex
+$(TEX):		$(TEXEXTRA)
+
+xpath.tex:	xpath.pl
 		$(PLTOTEX) --out=$@ --section 'library(xpath)'
 
-pwp.tex:	$(srcdir)/pwp.pl
+pwp.tex:	pwp.pl
 		$(PLTOTEX) --out=$@ --section 'library(pwp)'
 
-docclean::
-		rm -f $(TEX)
-		rm -rf html
-		../../man/runtex --clean $(DOC)
 
 ################################################################
 # Clean
 ################################################################
 
 clean::
-		rm -f $(PLOBJ) *~ *.o *% a.out core config.log sgml.pdf sgml.html $(TEX)
+		rm -f $(PLOBJ) *~ *.o *% a.out core config.log
 
 distclean:	clean
 		rm -f $(TARGETS) $(PROGRAMS)
 		rm -f config.cache config.h config.status Makefile
-		rm -f .coflags
 
