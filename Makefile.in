@@ -24,6 +24,7 @@ ALLCSRC=	$(LIBOBJ:.o=.c) \
 
 LIBPL=		sgml.pl xsdp_types.pl iso_639.pl sgml_write.pl xpath.pl \
 		pwp.pl
+LIBSRCPL=$(addprefix $(srcdir)/, $(LIBPL))
 TARGETS=	sgml2pl.@SO@
 PROGRAMS=	dtd2pl$(EXEEXT) sgml$(EXEEXT)
 DTDFILES=	HTML4.dcl HTML4.dtd HTML4.soc \
@@ -34,13 +35,13 @@ all:		$(TARGETS) $(PROGRAMS)
 sgml2pl.@SO@:	$(PLOBJ)
 		$(LD) $(LDSOFLAGS) -o $@ $(PLOBJ) $(LIBS)
 
-install:	$(TARGETS) $(LIBPL) install-dtd
+install:	$(TARGETS) $(LIBSRCPL) install-dtd
 		mkdir -p $(DESTDIR)$(SOLIBDIR)
 		$(INSTALL_PROGRAM) $(TARGETS) $(DESTDIR)$(SOLIBDIR);
-		$(INSTALL_DATA) $(LIBPL) $(DESTDIR)$(PLLIBDIR)
+		$(INSTALL_DATA) $(LIBSRCPL) $(DESTDIR)$(PLLIBDIR)
 		$(MKINDEX)
 
-ln-install::
+ln-insptall::
 		@$(MAKE) INSTALL_DATA=../ln-install \
 			 INSTALL_PROGRAM=../ln-install \
 			 install
@@ -48,9 +49,9 @@ ln-install::
 rpm-install:	install
 
 install-dtd::
-		mkdir -p $(DESTDIR)$(PLBASE)/library/DTD
+		mkdir -p $(DESTDIR)$(PLLIBDIR)/DTD
 		for f in $(DTDFILES); do \
-		   $(INSTALL_DATA) DTD/$$f $(DESTDIR)$(PLBASE)/library/DTD; \
+		   $(INSTALL_DATA) $(srcdir)/DTD/$$f $(DESTDIR)$(PLLIBDIR)/DTD; \
 		done
 
 pdf-install::
