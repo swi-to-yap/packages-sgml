@@ -1,11 +1,10 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker & Richard O'Keefe
-    E-mail:        wielemaker@science.uva.nl
+    E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2004, University of Amsterdam
+    Copyright (C): 1985-2012, University of Amsterdam
+			      VU University Amsterdam
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -56,6 +55,9 @@
 		       layout(boolean),
 		       net(boolean)
 		     ]).
+
+:- multifile
+	xmlns/2.			% NS, URI
 
 /** <module> XML/SGML writer module
 
@@ -588,15 +590,39 @@ add_missing_ns([H|T], Atts0, Atts) :-
 %	Generate a namespace (NS) identifier for URI.
 
 generate_ns(URI, NS) :-
+	xmlns(NS, URI), !.
+generate_ns(URI, NS) :-
 	default_ns(URI, NS), !.
 generate_ns(_, NS) :-
 	gensym(xns, NS).
+
+%%	xmlns(?NS, ?URI) is nondet.
+%
+%	Hook to define human readable  abbreviations for XML namespaces.
+%	xml_write/3 tries these locations:
+%
+%	  1. This hook
+%	  2. Defaults (see below)
+%	  3. rdf_db:ns/2 for RDF-DB integration
+%
+%	Default XML namespaces are:
+%
+%	  | xsi    | http://www.w3.org/2001/XMLSchema-instance |
+%	  | xs     | http://www.w3.org/2001/XMLSchema          |
+%	  | xhtml  | http://www.w3.org/1999/xhtml	       |
+%	  | soap11 | http://schemas.xmlsoap.org/soap/envelope/ |
+%	  | soap12 | http://www.w3.org/2003/05/soap-envelope   |
+%
+%	@see xml_write/2, rdf_register_ns/2.
 
 :- multifile
 	rdf_db:ns/2.
 
 default_ns('http://www.w3.org/2001/XMLSchema-instance', xsi).
-default_ns('http://www.w3.org/1999/xhtml', xhtml).
+default_ns('http://www.w3.org/2001/XMLSchema',		xs).
+default_ns('http://www.w3.org/1999/xhtml',		xhtml).
+default_ns('http://schemas.xmlsoap.org/soap/envelope/', soap11).
+default_ns('http://www.w3.org/2003/05/soap-envelope',   soap12).
 default_ns(URI, NS) :-
 	rdf_db:ns(NS, URI).
 
