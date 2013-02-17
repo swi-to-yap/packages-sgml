@@ -29,14 +29,17 @@
 :- use_module(library(maplist)).
 :- use_module(library(lists)).
 
+:- dynamic failed/1.
 
 test :-
 	testdir(.).
 
 testdir(Dir) :-
+	retractall(failed(_)),
 	atom_concat(Dir, '/*', Pattern),
 	expand_file_name(Pattern, Files),
-	maplist(dotest, Files).
+	maplist(dotest, Files),
+	report_failed.
 
 dotest(File) :-
 	file_name_extension(_, Ext, File),
@@ -54,7 +57,8 @@ test(File) :-
 	->  load_prolog_file(OkFile, TermOk, ErrorsOk),
 	    (	compare_dom(Term, TermOk)
 	    ->	format('ok')
-	    ;	format('WRONG'),
+	    ;   assert(failed(File)),
+	        format('WRONG'),
 	        format('~NOK:~n'),
 		pretty_print(TermOk),
 		format('~NANSWER:~n'),
@@ -63,7 +67,9 @@ test(File) :-
 	    error_terms(Errors),
 	    (	compare_errors(Errors, ErrorsOk)
 	    ->	true
-	    ;	format(' [Different errors]~nOK:~n'),
+	    ;	retractall(failed(File)),
+		assert(failed(File)),
+		format(' [Different errors]~nOK:~n'),
 		pretty_print(ErrorsOk),
 		format('~NANSWER:~n'),
 		pretty_print(Errors)
@@ -88,6 +94,15 @@ pass(File) :-
 	;   true
 	),
 	close(Fd).
+
+report_failed :-
+	findall(X, failed(X), L),
+	length(L, Len),
+	(   Len > 0
+        ->  format('~n*** ~w tests failed ***~n', [Len]),
+	    fail
+        ;   format('~nAll tests passed~n', [])
+	).
 
 :- dynamic
 	error/3.

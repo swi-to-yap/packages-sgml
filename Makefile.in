@@ -7,6 +7,7 @@
 PACKAGE=sgml
 DOC=sgml
 include ../Makefile.defs
+LIBS=@LIBS@
 CFLAGS+= -I.
 
 LIBOBJ=		parser.o util.o charmap.o catalog.o model.o xmlns.o utf8.o \
@@ -63,8 +64,8 @@ html-install::
 		$(INSTALL_DATA) sgml.html $(DESTDIR)$(PKGDOC)
 
 check::
-		$(PL) -f Test/test.pl -g test,halt
-		$(PL) -f Test/wrtest.pl -g test,halt
+		$(PL) -f Test/test.pl -g test,halt -t 'halt(1)'
+		$(PL) -f Test/wrtest.pl -g test,halt -t 'halt(1)'
 
 uninstall::
 		(cd $(PLBASE)/$(SOLIB)/$(INSTALL_PLARCH) && rm -f $(TARGETS))

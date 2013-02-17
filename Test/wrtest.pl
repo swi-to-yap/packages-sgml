@@ -15,10 +15,14 @@
 
 :- asserta(file_search_path(foreign, '..')).
 :- asserta(file_search_path(library, '..')).
+:- asserta(file_search_path(library, '../../RDF')).
 
 :- use_module(library(lists)).
 :- use_module(library(sgml)).
 :- use_module(library(sgml_write)).
+:- use_module(library(pretty_print)).
+
+:- dynamic failed/2.
 
 test :-					% default test
 	fp('.').
@@ -44,6 +48,7 @@ test(File, Into, Encoding) :-
 	close(Out).
 
 fp(Dir) :-
+	retractall(failed(_, _)),
 	atom_concat(Dir, '/*', Pattern),
 	expand_file_name(Pattern, Files),
 	(   member(File, Files),
@@ -61,7 +66,7 @@ fp(Dir) :-
 	    fixed_point(File, utf8),
 	    format(user_error, ' done~n', []),
 	    fail
-	;   true
+	;   report_failed
 	).
 
 ml_file(xml).
@@ -88,6 +93,16 @@ blocked('badxmlent.xml').
 %	in element or attribute names.
 
 utf8('utf8-ru.xml').
+
+
+report_failed :-
+	findall(X, failed(X, _), L),
+	length(L, Len),
+	(   Len > 0
+        ->  format('~n*** ~w tests failed ***~n', [Len]),
+	    fail
+        ;   format('~nAll tests passed~n', [])
+	).
 
 
 %%	fixed_point(+File, +Encoding)
@@ -119,23 +134,13 @@ fp(File, Encoding, Load, Write) :-
 	delete_file(TmpFile),
 	(   eq(Term, Term2)
 	->  true
-	;   format(user_error, 'First file:~n', []),
-	    %pp(Term),
-	    save_in_file(f1, Term),
+	;   assert(failed(File, Encoding)),
+	    format(user_error, 'First file:~n', []),
+	    pretty_print(Term),
 	    format(user_error, 'Second file:~n', []),
-	    %pp(Term2),
-	    save_in_file(f2, Term2),
+	    pretty_print(Term2),
 	    fail
 	).
-
-save_in_file(File, Term) :-
-	open(File, write, Out, [encoding(iso_latin_1)]),
-	current_output(C0),
-	set_output(Out),
-	pp(Term),
-	set_output(C0),
-	close(Out).
-
 
 cat(File, Encoding) :-
 	open(File, read, In, [encoding(Encoding)]),
@@ -172,15 +177,15 @@ eq(A1, A2) :-
 	(   B1 == B2
 	->  true
 	;   format(user_error,
-		   'ERROR: CDATA differs:~n\
-		   \t~p~n\
+		   'ERROR: CDATA differs:~n\c
+		   \t~p~n\c
 		   \t~p~n',
 		   [B1, B2])
 	).
 eq(X, Y) :-
 	format(user_error,
-	       'ERROR: Content differs:~n\
-	       \t~p~n\
+	       'ERROR: Content differs:~n\c
+	       \t~p~n\c
 	       \t~p~n',
 	       [X, Y]).
 
@@ -189,8 +194,8 @@ att_eq(A1, A2) :-			% ordering is unimportant
 	sort(A2, S), !.
 att_eq(A1, A2) :-
 	format(user_error,
-	       'ERROR: Attribute lists differ:~n\
-	       \t~p~n\
+	       'ERROR: Attribute lists differ:~n\c
+	       \t~p~n\c
 	       \t~p~n',
 	       [A1, A2]).
 

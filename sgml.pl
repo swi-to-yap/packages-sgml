@@ -1,11 +1,9 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@cs.vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2011, University of Amsterdam
+    Copyright (C): 1985-2012, University of Amsterdam
 			      VU University Amsterdam
 
     This program is free software; you can redistribute it and/or
@@ -60,6 +58,13 @@
 	    xml_quote_cdata/2,		% +In, -Quoted
 	    xml_name/1,			% +In
 	    xml_name/2,			% +In, +Encoding
+
+	    xml_basechar/1,		% +Code
+	    xml_ideographic/1,		% +Code
+	    xml_combining_char/1,	% +Code
+	    xml_digit/1,		% +Code
+	    xml_extender/1,		% +Code
+
 	    iri_xml_namespace/2,	% +IRI, -Namespace
 	    iri_xml_namespace/3,	% +IRI, -Namespace, -LocalName
 	    xml_is_dom/1		% +Term
@@ -77,7 +82,7 @@
 		       dialect(oneof([sgml,xml,xmlns])),
 		       doctype(atom),
 		       dtd(any),
-		       encoding(encoding),
+		       encoding(oneof(['iso-8859-1', 'utf-8'])),
 		       entity(atom,atom),
 		       file(atom),
 		       line(integer),
@@ -459,6 +464,23 @@ xml_name(In) :-
 
 
 		 /*******************************
+		 *    XML CHARACTER CLASSES	*
+		 *******************************/
+
+%%	xml_basechar(+CodeOrChar) is semidet.
+%%	xml_ideographic(+CodeOrChar) is semidet.
+%%	xml_combining_char(+CodeOrChar) is semidet.
+%%	xml_digit(+CodeOrChar) is semidet.
+%%	xml_extender(+CodeOrChar) is semidet.
+%
+%	XML  character  classification   predicates.    Each   of  these
+%	predicates accept both a character   (one-character  atom) and a
+%	code (integer).
+%
+%	@see http://www.w3.org/TR/2006/REC-xml-20060816
+
+
+		 /*******************************
 		 *	   TYPE CHECKING	*
 		 *******************************/
 
@@ -468,18 +490,29 @@ xml_name(In) :-
 %	load_structure/3 and friends.
 
 xml_is_dom(0) :- !, fail.		% catch variables
-xml_is_dom([]) :- !.
-xml_is_dom([H|T]) :- !,
-	xml_is_dom(H),
-	xml_is_dom(T).
-xml_is_dom(element(Name, Attributes, Content)) :- !,
+xml_is_dom(List) :-
+	is_list(List), !,
+	xml_is_content_list(List).
+xml_is_dom(Term) :-
+	xml_is_element(Term).
+
+xml_is_content_list([]).
+xml_is_content_list([H|T]) :-
+	xml_is_content(H),
+	xml_is_content_list(T).
+
+xml_is_content(0) :- !, fail.
+xml_is_content(pi(Pi)) :- !,
+	atom(Pi).
+xml_is_content(CDATA) :-
+	atom(CDATA), !.
+xml_is_content(Term) :-
+	xml_is_element(Term).
+
+xml_is_element(element(Name, Attributes, Content)) :-
 	dom_name(Name),
 	dom_attributes(Attributes),
-	xml_is_dom(Content).
-xml_is_dom(pi(Pi)) :- !,
-	atom(Pi).
-xml_is_dom(CDATA) :-
-	atom(CDATA).
+	xml_is_content_list(Content).
 
 dom_name(NS:Local) :-
 	atom(NS),
