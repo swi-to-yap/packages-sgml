@@ -1,11 +1,10 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        wielemak@science.uva.nl
+    E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2008, University of Amsterdam
+    Copyright (C): 1985-2013, University of Amsterdam
+			      VU University Amsterdam
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -106,7 +105,7 @@ typedef struct _parser_data
 
   term_t      list;			/* output term (if any) */
   term_t      tail;			/* tail of the list */
-  env 	     *stack;			/* environment stack */
+  env	     *stack;			/* environment stack */
   int	      free_on_close;		/* sgml_free parser on close */
 } parser_data;
 
@@ -127,10 +126,15 @@ static functor_t FUNCTOR_element3;
 static functor_t FUNCTOR_entity1;
 static functor_t FUNCTOR_equal2;
 static functor_t FUNCTOR_file1;
+static functor_t FUNCTOR_file4;
+static functor_t FUNCTOR_dstream_position4;
 static functor_t FUNCTOR_fixed1;
 static functor_t FUNCTOR_line1;
+static functor_t FUNCTOR_linepos1;
 static functor_t FUNCTOR_list1;
 static functor_t FUNCTOR_max_errors1;
+static functor_t FUNCTOR_syntax_error1;
+static functor_t FUNCTOR_error2;
 static functor_t FUNCTOR_nameof1;
 static functor_t FUNCTOR_notation1;
 static functor_t FUNCTOR_omit2;
@@ -154,12 +158,14 @@ static functor_t FUNCTOR_syntax_errors1;
 static functor_t FUNCTOR_xml_no_ns1;
 static functor_t FUNCTOR_minus2;
 static functor_t FUNCTOR_positions1;
+static functor_t FUNCTOR_position1;
 static functor_t FUNCTOR_event_class1;
 static functor_t FUNCTOR_doctype1;
 static functor_t FUNCTOR_allowed1;
 static functor_t FUNCTOR_context1;
 static functor_t FUNCTOR_defaults1;
 static functor_t FUNCTOR_shorttag1;
+static functor_t FUNCTOR_case_sensitive_attributes1;
 static functor_t FUNCTOR_qualify_attributes1;
 static functor_t FUNCTOR_encoding1;
 static functor_t FUNCTOR_xmlns1;
@@ -199,7 +205,9 @@ initConstants()
   FUNCTOR_nameof1	 = mkfunctor("nameof", 1);
   FUNCTOR_notation1	 = mkfunctor("notation", 1);
   FUNCTOR_file1		 = mkfunctor("file", 1);
+  FUNCTOR_file4		 = mkfunctor("file", 4);
   FUNCTOR_line1		 = mkfunctor("line", 1);
+  FUNCTOR_linepos1	 = mkfunctor("linepos", 1);
   FUNCTOR_dialect1	 = mkfunctor("dialect", 1);
   FUNCTOR_max_errors1	 = mkfunctor("max_errors", 1);
   FUNCTOR_parse1	 = mkfunctor("parse", 1);
@@ -215,19 +223,24 @@ initConstants()
   FUNCTOR_ndata1	 = mkfunctor("ndata", 1);
   FUNCTOR_number1	 = mkfunctor("number", 1);
   FUNCTOR_syntax_errors1 = mkfunctor("syntax_errors", 1);
+  FUNCTOR_syntax_error1  = mkfunctor("syntax_error", 1);
+  FUNCTOR_error2         = mkfunctor("error", 2);
   FUNCTOR_xml_no_ns1     = mkfunctor("xml_no_ns", 1);
-  FUNCTOR_minus2 	 = mkfunctor("-", 2);
-  FUNCTOR_positions1 	 = mkfunctor("positions", 1);
-  FUNCTOR_event_class1 	 = mkfunctor("event_class", 1);
+  FUNCTOR_minus2	 = mkfunctor("-", 2);
+  FUNCTOR_position1	 = mkfunctor("position", 1);
+  FUNCTOR_positions1	 = mkfunctor("positions", 1);
+  FUNCTOR_event_class1	 = mkfunctor("event_class", 1);
   FUNCTOR_doctype1       = mkfunctor("doctype", 1);
   FUNCTOR_allowed1       = mkfunctor("allowed", 1);
   FUNCTOR_context1       = mkfunctor("context", 1);
   FUNCTOR_defaults1	 = mkfunctor("defaults", 1);
   FUNCTOR_shorttag1	 = mkfunctor("shorttag", 1);
+  FUNCTOR_case_sensitive_attributes1 = mkfunctor("case_sensitive_attributes", 1);
   FUNCTOR_qualify_attributes1 = mkfunctor("qualify_attributes", 1);
   FUNCTOR_encoding1	 = mkfunctor("encoding", 1);
   FUNCTOR_xmlns1	 = mkfunctor("xmlns", 1);
   FUNCTOR_xmlns2	 = mkfunctor("xmlns", 2);
+  FUNCTOR_dstream_position4 = PL_new_functor(PL_new_atom("$stream_position"), 4);
 
   ATOM_true = PL_new_atom("true");
   ATOM_false = PL_new_atom("false");
@@ -278,7 +291,7 @@ unify_dtd(term_t t, dtd *dtd)
 { if ( dtd->doctype )
     return PL_unify_term(t, PL_FUNCTOR, FUNCTOR_dtd2,
 			 PL_POINTER, dtd,
-			 PL_CHARS, dtd->doctype);
+			 PL_NWCHARS, (size_t)-1, dtd->doctype);
   else
     return PL_unify_term(t, PL_FUNCTOR, FUNCTOR_dtd2,
 			 PL_POINTER, dtd,
@@ -421,14 +434,33 @@ pl_set_sgml_parser(term_t parser, term_t option)
   { term_t a = PL_new_term_ref();
 
     _PL_get_arg(1, option, a);
-    if ( !PL_get_integer(a, &p->location.line) )
-      return sgml2pl_error(ERR_TYPE, "integer", a);
+    if ( !PL_get_integer_ex(a, &p->location.line) )
+      return FALSE;
+  } else if ( PL_is_functor(option, FUNCTOR_linepos1) )
+  { term_t a = PL_new_term_ref();
+
+    _PL_get_arg(1, option, a);
+    if ( !PL_get_integer_ex(a, &p->location.linepos) )
+      return FALSE;
   } else if ( PL_is_functor(option, FUNCTOR_charpos1) )
   { term_t a = PL_new_term_ref();
 
     _PL_get_arg(1, option, a);
-    if ( !PL_get_long(a, &p->location.charpos) )
-      return sgml2pl_error(ERR_TYPE, "integer", a);
+    if ( !PL_get_long_ex(a, &p->location.charpos) )
+      return FALSE;
+  } else if ( PL_is_functor(option, FUNCTOR_position1) )
+  { term_t a = PL_new_term_ref();
+
+    _PL_get_arg(1, option, a);
+    if ( PL_is_functor(a, FUNCTOR_dstream_position4) )
+    { term_t arg = PL_new_term_ref();
+
+      if ( !PL_get_arg(1,a,arg) || !PL_get_long_ex(arg, &p->location.charpos) ||
+	   !PL_get_arg(2,a,arg) || !PL_get_integer_ex(arg,  &p->location.line) ||
+	   !PL_get_arg(3,a,arg) || !PL_get_integer_ex(arg,  &p->location.linepos))
+	return FALSE;
+    } else
+      return PL_type_error("stream_position", a);
   } else if ( PL_is_functor(option, FUNCTOR_dialect1) )
   { term_t a = PL_new_term_ref();
     char *s;
@@ -443,6 +475,10 @@ pl_set_sgml_parser(term_t parser, term_t option)
       set_dialect_dtd(p->dtd, DL_XMLNS);
     else if ( streq(s, "sgml") )
       set_dialect_dtd(p->dtd, DL_SGML);
+    else if ( streq(s, "html") || streq(s, "html4") )
+      set_dialect_dtd(p->dtd, DL_HTML);
+    else if ( streq(s, "html5") )
+      set_dialect_dtd(p->dtd, DL_HTML5);
     else
       return sgml2pl_error(ERR_DOMAIN, "sgml_dialect", a);
   } else if ( PL_is_functor(option, FUNCTOR_space1) )
@@ -497,6 +533,15 @@ pl_set_sgml_parser(term_t parser, term_t option)
       return sgml2pl_error(ERR_TYPE, "boolean", a);
 
     set_option_dtd(p->dtd, OPT_SHORTTAG, val);
+  } else if ( PL_is_functor(option, FUNCTOR_case_sensitive_attributes1) )
+  { term_t a = PL_new_term_ref();
+    int val;
+
+    _PL_get_arg(1, option, a);
+    if ( !PL_get_bool(a, &val) )
+      return sgml2pl_error(ERR_TYPE, "boolean", a);
+
+    set_option_dtd(p->dtd, OPT_CASE_SENSITIVE_ATTRIBUTES, val);
   } else if ( PL_is_functor(option, FUNCTOR_number1) )
   { term_t a = PL_new_term_ref();
     char *s;
@@ -623,6 +668,10 @@ pl_get_sgml_parser(term_t parser, term_t option)
     switch(p->dtd->dialect)
     { case DL_SGML:
 	return PL_unify_atom_chars(a, "sgml");
+      case DL_HTML:
+	return PL_unify_atom_chars(a, "html");
+      case DL_HTML5:
+	return PL_unify_atom_chars(a, "html5");
       case DL_XML:
 	return PL_unify_atom_chars(a, "xml");
       case DL_XMLNS:
@@ -1365,40 +1414,63 @@ on_error(dtd_parser *p, dtd_error *error)
   { fid_t fid;
 
     if ( (fid=PL_open_foreign_frame()) )
-    { int rc;
-      predicate_t pred = PL_predicate("print_message", 2, "user");
-      term_t av = PL_new_term_refs(2);
-      term_t src = PL_new_term_ref();
-      term_t parser = PL_new_term_ref();
+    { int rc = TRUE;
       dtd_srcloc *l = file_location(p, &p->startloc);
 
-      rc = ( unify_parser(parser, p) &&
-	     PL_put_atom_chars(av+0, severity) );
+      if ( pd->max_errors == 0 )
+      { term_t ex = PL_new_term_ref();
+	term_t pos = PL_new_term_ref();
 
-      if ( rc )
-      { if ( l->name.file )
-	{ if ( l->type == IN_FILE )
-	    rc = put_atom_wchars(src, l->name.file);
-	  else
-	    rc = put_atom_wchars(src, l->name.entity);
-	} else
-	{ PL_put_nil(src);
+	if ( l->name.file )
+	  rc = PL_unify_term(pos,
+			     PL_FUNCTOR, FUNCTOR_file4,
+			       PL_NWCHARS, (size_t)-1, l->name.file,
+			       PL_INT,   l->line,
+			       PL_INT,   l->linepos,
+			       PL_INT64, (int64_t)l->charpos);
+	if ( rc )
+	  rc = PL_unify_term(ex,
+			     PL_FUNCTOR, FUNCTOR_error2,
+			       PL_FUNCTOR, FUNCTOR_syntax_error1,
+			         PL_NWCHARS, (size_t)-1, error->plain_message,
+			       PL_TERM, pos);
+	if ( rc )
+	  rc = PL_raise_exception(ex);
+      } else
+      { predicate_t pred = PL_predicate("print_message", 2, "user");
+	term_t av = PL_new_term_refs(2);
+	term_t src = PL_new_term_ref();
+	term_t parser = PL_new_term_ref();
+
+	rc = ( unify_parser(parser, p) &&
+	       PL_put_atom_chars(av+0, severity) );
+
+	if ( rc )
+	{ if ( l->name.file )
+	  { if ( l->type == IN_FILE )
+	      rc = put_atom_wchars(src, l->name.file);
+	    else
+	      rc = put_atom_wchars(src, l->name.entity);
+	  } else
+	  { PL_put_nil(src);
+	  }
 	}
+
+	if ( rc )
+	  rc = PL_unify_term(av+1,
+			     PL_FUNCTOR_CHARS, "sgml", 4,
+			       PL_TERM, parser,
+			       PL_TERM, src,
+			       PL_INT, l->line,
+			       PL_NWCHARS, wcslen(error->plain_message),
+					   error->plain_message);
+
+	if ( rc )
+	  rc = PL_call_predicate(NULL, PL_Q_NODEBUG, pred, av);
+
+	PL_discard_foreign_frame(fid);
       }
 
-      if ( rc )
-	rc = PL_unify_term(av+1,
-			   PL_FUNCTOR_CHARS, "sgml", 4,
-			     PL_TERM, parser,
-			     PL_TERM, src,
-			     PL_INT, l->line,
-			     PL_NWCHARS, wcslen(error->plain_message),
-					 error->plain_message);
-
-      if ( rc )
-	rc = PL_call_predicate(NULL, PL_Q_NODEBUG, pred, av);
-
-      PL_discard_foreign_frame(fid);
       if ( rc )
 	return TRUE;
     }

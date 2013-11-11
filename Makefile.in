@@ -9,6 +9,7 @@ DOC=sgml
 include ../Makefile.defs
 LIBS=@LIBS@
 CFLAGS+= -I.
+# COFLAGS=-gdwarf-2 -g3
 
 LIBOBJ=		parser.o util.o charmap.o catalog.o model.o xmlns.o utf8.o \
 		xml_unicode.o
@@ -28,7 +29,7 @@ LIBPL=		sgml.pl xsdp_types.pl iso_639.pl sgml_write.pl xpath.pl \
 LIBSRCPL=$(addprefix $(srcdir)/, $(LIBPL))
 TARGETS=	sgml2pl.@SO@
 PROGRAMS=	dtd2pl$(EXEEXT) sgml$(EXEEXT)
-DTDFILES=	HTML4.dcl HTML4.dtd HTML4.soc \
+DTDFILES=	HTML4.dcl HTML4.dtd HTML4.soc HTML5.dtd \
 		HTMLlat1.ent HTMLspec.ent HTMLsym.ent
 
 all:		$(TARGETS) $(PROGRAMS)
@@ -64,8 +65,8 @@ html-install::
 		$(INSTALL_DATA) sgml.html $(DESTDIR)$(PKGDOC)
 
 check::
-		$(PL) -f Test/test.pl -g test,halt -t 'halt(1)'
-		$(PL) -f Test/wrtest.pl -g test,halt -t 'halt(1)'
+		$(PL) -f Test/test.pl -q -g test,halt -t 'halt(1)'
+		$(PL) -f Test/wrtest.pl -q -g test,halt -t 'halt(1)'
 
 uninstall::
 		(cd $(PLBASE)/$(SOLIB)/$(INSTALL_PLARCH) && rm -f $(TARGETS))

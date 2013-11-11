@@ -1,11 +1,10 @@
-/*  $Id$
-
-    Part of SWI-Prolog
+/*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        jan@swi.psy.uva.nl
+    E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2002, University of Amsterdam
+    Copyright (C): 1985-2013, University of Amsterdam
+			      Vu University Amsterdam
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
@@ -158,13 +157,19 @@ typedef enum
 
 typedef enum
 { DL_SGML,				/* Use SGML */
+  DL_HTML,				/* Pre-HTML5 */
+  DL_HTML5,				/* HTML5 extensions of SGML */
   DL_XML,				/* Use XML */
   DL_XMLNS				/* Use XML + Namespaces */
 } dtd_dialect;
 
+#define IS_SGML_DIALECT(d) ((int)(d) <= (int)DL_HTML5)
+#define IS_HTML_DIALECT(d) ((d) == DL_HTML || (d) == DL_HTML5)
+#define IS_XML_DIALECT(d)  ((int)(d) >= (int)DL_XML)
 
 typedef enum
-{ OPT_SHORTTAG				/* do/don't accept shorttag */
+{ OPT_SHORTTAG,				/* do/don't accept shorttag */
+  OPT_CASE_SENSITIVE_ATTRIBUTES		/* attribute values case(in)sensitive */
 } dtd_option;
 
 
@@ -421,6 +426,7 @@ typedef struct _dtd
   dtd_dialect		dialect;	/* DL_* */
   int			case_sensitive;	/* Tags are case-sensitive */
   int			ent_case_sensitive; /* Entities are case-sensitive */
+  int			att_case_sensitive; /* Att values are case-sensitive */
   ichar		       *doctype;	/* defined document type */
   dtd_symbol_table     *symbols;	/* symbol-table */
   dtd_entity           *pentities;	/* defined parameter entities */

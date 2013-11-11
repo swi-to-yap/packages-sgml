@@ -1,9 +1,9 @@
 /*  Part of SWI-Prolog
 
     Author:        Jan Wielemaker
-    E-mail:        J.Wielemaker@cs.vu.nl
+    E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 1985-2012, University of Amsterdam
+    Copyright (C): 1985-2013, University of Amsterdam
 			      VU University Amsterdam
 
     This program is free software; you can redistribute it and/or
@@ -29,7 +29,11 @@
 */
 
 :- module(sgml,
-	  [ load_sgml_file/2,		% +File, -ListOfContent
+	  [ load_html/3,		% +Input, -DOM, +Options
+	    load_xml/3,			% +Input, -DOM, +Options
+	    load_sgml/3,		% +Input, -DOM, +Options
+
+	    load_sgml_file/2,		% +File, -ListOfContent
 	    load_xml_file/2,		% +File, -ListOfContent
 	    load_html_file/2,		% +File, -Document
 
@@ -72,9 +76,13 @@
 :- use_module(library(lists)).
 :- use_module(library(option)).
 :- use_module(library(shlib)).
+:- use_module(library(error)).
 
 :- meta_predicate
-	load_structure(+, -, :).
+	load_structure(+, -, :),
+	load_html(+, -, :),
+	load_xml(+, -, :),
+	load_sgml(+, -, :).
 
 :- predicate_options(load_structure/3, 3,
 		     [ charpos(integer),
@@ -86,13 +94,24 @@
 		       entity(atom,atom),
 		       file(atom),
 		       line(integer),
+		       offset(integer),
 		       number(oneof([token,integer])),
 		       qualify_attributes(boolean),
 		       shorttag(boolean),
+		       case_sensitive_attributes(boolean),
 		       space(oneof([sgml,preserve,defailt,remove])),
 		       xmlns(atom),
 		       xmlns(atom,atom),
 		       pass_to(sgml_parse/2, 2)
+		     ]).
+:- predicate_options(load_html/3, 3,
+		     [ pass_to(load_structure/3, 3)
+		     ]).
+:- predicate_options(load_xml/3, 3,
+		     [ pass_to(load_structure/3, 3)
+		     ]).
+:- predicate_options(load_sgml/3, 3,
+		     [ pass_to(load_structure/3, 3)
 		     ]).
 :- predicate_options(load_dtd/3, 3,
 		     [ dialect(oneof([sgml,xml,xmlns])),
@@ -178,7 +197,13 @@ diagnosed to mess with the entity resolution by Fabien Todescato.
 :- multifile
 	dtd_alias/2.
 
-dtd_alias(html, 'HTML4').
+:- create_prolog_flag(html_dialect, html5, [type(atom)]).
+
+dtd_alias(html4, 'HTML4').
+dtd_alias(html5, 'HTML5').
+dtd_alias(html,  DTD) :-
+	current_prolog_flag(html_dialect, Dialect),
+	dtd_alias(Dialect, DTD).
 
 %%	dtd(+Type, -DTD) is det.
 %
@@ -317,25 +342,6 @@ dtd_property(DTD, Prop) :-
 		 *	       SGML		*
 		 *******************************/
 
-parser_option(dialect(_)).
-parser_option(shorttag(_)).
-parser_option(file(_)).
-parser_option(line(_)).
-parser_option(space(_)).
-parser_option(number(_)).
-parser_option(defaults(_)).
-parser_option(doctype(_)).
-parser_option(qualify_attributes(_)).
-parser_option(encoding(_)).
-
-set_parser_options(Parser, Options, RestOptions) :-
-	parser_option(Option),
-	select_option(Option, Options, RestOptions0), !,
-	set_sgml_parser(Parser, Option),
-	set_parser_options(Parser, RestOptions0, RestOptions).
-set_parser_options(_, Options, Options).
-
-
 %%	load_structure(+Source, -ListOfContent, :Options) is det.
 %
 %	Parse   Source   and   return   the   resulting   structure   in
@@ -349,21 +355,18 @@ set_parser_options(_, Options, Options).
 %	content.
 
 load_structure(stream(In), Term, M:Options) :- !,
-	(   select_option(offset(Offset), Options, Options1)
-	->  seek(In, Offset, bof, _)
-	;   Options1 = Options
-	),
-	(   select_option(dtd(DTD), Options1, Options2)
+	(   select_option(dtd(DTD), Options, Options1)
 	->  ExplicitDTD = true
 	;   ExplicitDTD = false,
-	    Options2 = Options1
+	    Options1 = Options
 	),
-	new_sgml_parser(Parser,
-			[ dtd(DTD)
-			]),
-	def_entities(Options2, Parser, Options3),
-	call_cleanup(parse(Parser, M:Options3, TermRead, In),
-		     free_sgml_parser(Parser)),
+	move_front(Options1, dialect(_), Options2), % dialect sets defaults
+	setup_call_cleanup(
+	    new_sgml_parser(Parser,
+			    [ dtd(DTD)
+			    ]),
+	    parse(Parser, M:Options2, TermRead, In),
+	    free_sgml_parser(Parser)),
 	(   ExplicitDTD == true
 	->  (   DTD = dtd(_, DocType),
 	        dtd_property(DTD, doctype(DocType))
@@ -376,34 +379,63 @@ load_structure(stream(In), Term, M:Options) :- !,
 load_structure(Stream, Term, Options) :-
 	is_stream(Stream), !,
 	load_structure(stream(Stream), Term, Options).
-load_structure(File, Term, M:Options) :-
+load_structure(File, Term, Options) :-
 	setup_call_cleanup(
 	    open(File, read, In, [type(binary)]),
-	    load_structure(stream(In), Term, M:[file(File)|Options]),
+	    load_structure(stream(In), Term, Options),
 	    close(In)).
 
+move_front(Options0, Opt, Options) :-
+	selectchk(Opt, Options0, Options1), !,
+	Options = [Opt|Options1].
+move_front(Options, _, Options).
+
+
 parse(Parser, M:Options, Document, In) :-
-	set_parser_options(Parser, Options, Options1),
+	set_parser_options(Options, Parser, In, Options1),
 	parser_meta_options(Options1, M, Options2),
+	set_input_location(Parser, In),
 	sgml_parse(Parser,
 		   [ document(Document),
 		     source(In)
 		   | Options2
 		   ]).
 
-parser_meta_options([], _, []).
-parser_meta_options([call(When, Closure)|T0], M, [call(When, M:Closure)|T]) :- !,
-	parser_meta_options(T0, M, T).
-parser_meta_options([H|T0], M, [H|T]) :-
-	parser_meta_options(T0, M, T).
+set_parser_options([], _, _, []).
+set_parser_options([H|T], Parser, In, Rest) :-
+	(   set_parser_option(H, Parser, In)
+	->  set_parser_options(T, Parser, In, Rest)
+	;   Rest = [H|R2],
+	    set_parser_options(T, Parser, In, R2)
+	).
+
+set_parser_option(Var, _Parser, _In) :-
+	var(Var), !,
+	instantiation_error(Var).
+set_parser_option(Option, Parser, _) :-
+	def_entity(Option, Parser), !.
+set_parser_option(offset(Offset), _Parser, In) :- !,
+	seek(In, Offset, bof, _).
+set_parser_option(Option, Parser, _In) :-
+	parser_option(Option), !,
+	set_sgml_parser(Parser, Option).
+set_parser_option(Name=Value, Parser, In) :-
+	Option =.. [Name,Value],
+	set_parser_option(Option, Parser, In).
 
 
-def_entities([], _, []).
-def_entities([H|T], Parser, Opts) :-
-	def_entity(H, Parser), !,
-	def_entities(T, Parser, Opts).
-def_entities([H|T0], Parser, [H|T]) :-
-	def_entities(T0, Parser, T).
+parser_option(dialect(_)).
+parser_option(shorttag(_)).
+parser_option(case_sensitive_attributes(_)).
+parser_option(file(_)).
+parser_option(line(_)).
+parser_option(space(_)).
+parser_option(number(_)).
+parser_option(defaults(_)).
+parser_option(doctype(_)).
+parser_option(qualify_attributes(_)).
+parser_option(encoding(_)).
+
 
 def_entity(entity(Name, Value), Parser) :-
 	get_sgml_parser(Parser, dtd(DTD)),
@@ -417,24 +449,112 @@ def_entity(xmlns(URI), Parser) :-
 def_entity(xmlns(NS, URI), Parser) :-
 	set_sgml_parser(Parser, xmlns(NS, URI)).
 
+%%	parser_meta_options(+Options0, +Module, -Options)
+%
+%	Qualify meta-calling options to the parser.
+
+parser_meta_options([], _, []).
+parser_meta_options([call(When, Closure)|T0], M, [call(When, M:Closure)|T]) :- !,
+	parser_meta_options(T0, M, T).
+parser_meta_options([H|T0], M, [H|T]) :-
+	parser_meta_options(T0, M, T).
+
+
+%%	set_input_location(+Parser, +In:stream) is det.
+%
+%	Set the input location if this was not set explicitly
+
+set_input_location(Parser, _In) :-
+	get_sgml_parser(Parser, file(_)), !.
+set_input_location(Parser, In) :-
+	stream_property(In, file_name(File)), !,
+	set_sgml_parser(Parser, file(File)),
+	stream_property(In, position(Pos)),
+	set_sgml_parser(Parser, position(Pos)).
+set_input_location(_, _).
 
 		 /*******************************
 		 *	     UTILITIES		*
 		 *******************************/
 
+%%	load_sgml_file(+File, -DOM) is det.
+%
+%	Load SGML from File and unify   the resulting DOM structure with
+%	DOM.
+%
+%	@deprecated	New code should use load_sgml/3.
+
 load_sgml_file(File, Term) :-
-	load_structure(File, Term, [dialect(sgml)]).
+	load_sgml(File, Term, []).
+
+%%	load_xml_file(+File, -DOM) is det.
+%
+%	Load XML from File and unify   the  resulting DOM structure with
+%	DOM.
+%
+%	@deprecated	New code should use load_xml/3.
 
 load_xml_file(File, Term) :-
-	load_structure(File, Term, [dialect(xml)]).
+	load_xml(File, Term, []).
 
-load_html_file(File, Term) :-
-	dtd(html, DTD),
-	load_structure(File, Term,
-		       [ dtd(DTD),
-			 dialect(sgml),
-			 shorttag(false)
-		       ]).
+%%	load_html_file(+File, -DOM) is det.
+%
+%	Load HTML from File and unify   the resulting DOM structure with
+%	DOM.
+%
+%	@deprecated	New code should use load_html/3.
+
+load_html_file(File, DOM) :-
+	load_html(File, DOM, []).
+
+%%	load_html(+Input, -DOM, +Options) is det.
+%
+%	Load HTML text from Input and  unify the resulting DOM structure
+%	with DOM. Options are passed   to load_structure/3, after adding
+%	the following default options:
+%
+%	  - dtd(DTD)
+%	  Pass the DTD for HTML as obtained using dtd(html, DTD).
+%	  - dialect(Dialect)
+%	  Current dialect from the Prolog flag =html_dialect=
+
+load_html(File, Term, M:Options) :-
+	current_prolog_flag(html_dialect, Dialect),
+	dtd(Dialect, DTD),
+	merge_options(Options,
+		      [ dtd(DTD),
+			dialect(Dialect)
+		      ], Options1),
+	load_structure(File, Term, M:Options1).
+
+%%	load_xml(+Input, -DOM, +Options) is det.
+%
+%	Load XML text from Input and   unify the resulting DOM structure
+%	with DOM. Options are passed   to load_structure/3, after adding
+%	the following default options:
+%
+%	  - dialect(xml)
+
+load_xml(Input, DOM, M:Options) :-
+	merge_options(Options,
+		      [ dialect(xml)
+		      ], Options1),
+	load_structure(Input, DOM, M:Options1).
+
+%%	load_sgml(+Input, -DOM, +Options) is det.
+%
+%	Load SGML text from Input and  unify the resulting DOM structure
+%	with DOM. Options are passed   to load_structure/3, after adding
+%	the following default options:
+%
+%	  - dialect(sgml)
+
+load_sgml(Input, DOM, M:Options) :-
+	merge_options(Options,
+		      [ dialect(sgml)
+		      ], Options1),
+	load_structure(Input, DOM, M:Options1).
+
 
 
 		 /*******************************
