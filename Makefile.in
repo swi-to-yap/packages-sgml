@@ -37,7 +37,7 @@ all:		$(TARGETS) $(PROGRAMS)
 sgml2pl.@SO@:	$(PLOBJ)
 		$(LD) $(LDSOFLAGS) -o $@ $(PLOBJ) $(LIBS) $(LIBPLSO)
 
-install:	$(TARGETS) $(LIBSRCPL) install-dtd
+install:	$(TARGETS) $(LIBSRCPL) install-dtd  install-examples
 		mkdir -p $(DESTDIR)$(SOLIBDIR)
 		$(INSTALL_PROGRAM) $(TARGETS) $(DESTDIR)$(SOLIBDIR);
 		$(INSTALL_DATA) $(LIBSRCPL) $(DESTDIR)$(PLLIBDIR)
