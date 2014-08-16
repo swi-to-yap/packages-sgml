@@ -64,6 +64,8 @@ static pthread_mutex_t catalog_mutex = PTHREAD_MUTEX_INITIALIZER;
 #define streq(s1, s2) istreq(s1, s2)
 #define uc(p) (*(p))
 
+int register_catalog_file_unlocked(const ichar *file, catalog_location where);
+
 typedef struct catalogue_item *catalogue_item_ptr;
 struct catalogue_item
 { catalogue_item_ptr next;

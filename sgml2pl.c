@@ -50,6 +50,9 @@
 
 #define ENDSNUL ((size_t)-1)
 
+install_t install( void );
+install_t uninstall( void );
+
 		 /*******************************
 		 *     PARSER CONTEXT DATA	*
 		 *******************************/
@@ -2650,12 +2653,13 @@ pl_sgml_register_catalog_file(term_t file, term_t where)
 		 *******************************/
 
 extern install_t install_xml_quote(void);
+install_t uninstall( void );
 #ifdef O_STATISTICS
 extern void sgml_statistics(void);
 #endif
 
 install_t
-install()
+install( void )
 { initConstants();
 
   init_ring();
@@ -2682,7 +2686,7 @@ install()
 
 
 install_t
-uninstall()
+uninstall( void )
 { 
 #ifdef _REENTRANT
   stop_ring();

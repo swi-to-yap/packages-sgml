@@ -42,6 +42,8 @@
 #define inline __inline
 #endif
 
+install_t install_xml_quote( void );
+
 static atom_t ATOM_iso_latin_1;
 static atom_t ATOM_utf8;
 static atom_t ATOM_unicode;
@@ -528,7 +530,7 @@ pl_xml_extender(term_t t)
 
 
 install_t
-install_xml_quote()
+install_xml_quote( void )
 { ATOM_iso_latin_1 = PL_new_atom("iso_latin_1");
   ATOM_utf8        = PL_new_atom("utf8");
   ATOM_unicode     = PL_new_atom("unicode");

@@ -45,6 +45,8 @@
 #include <assert.h>
 #include "utf8.h"
 
+void wputs(ichar *s);
+
 size_t
 istrlen(const ichar *s)
 { size_t len =0;
