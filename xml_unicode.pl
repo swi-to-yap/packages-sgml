@@ -33,7 +33,9 @@
 	  [ mkclassify/0
 	  ]).
 
-%%	mkclassify
+:- use_module(library(lists)).
+
+%%	mkclassify
 %
 %	Generate the core of xml_unicode.c.
 

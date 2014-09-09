@@ -369,7 +369,8 @@ pwp_stream(M:Input, Output, Context) :-
     wait for The Real Thing.
 */
 
-
+:- use_module( library(lists) ).
+:- use_module( library(readutil) ).
 
 %%  pwp_xml(:In:list(xml), -Out:list(xml), +Context)
 %
