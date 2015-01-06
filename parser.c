@@ -254,7 +254,7 @@ isee_func(dtd *dtd, const ichar *in, charfunc func)
 		 *******************************/
 
 static dtd_symbol_table *
-new_symbol_table()
+new_symbol_table(void)
 { dtd_symbol_table *t = sgml_calloc(1, sizeof(*t));
   t->size    = SYMBOLHASHSIZE;
   t->entries = sgml_calloc(t->size, sizeof(dtd_symbol*));

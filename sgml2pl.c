@@ -186,7 +186,7 @@ static atom_t ATOM_position;
 #define mkfunctor(n, a) PL_new_functor(PL_new_atom(n), a)
 
 static void
-initConstants()
+initConstants(void)
 {
   FUNCTOR_sgml_parser1	 = mkfunctor("sgml_parser", 1);
   FUNCTOR_equal2	 = mkfunctor("=", 2);
@@ -829,7 +829,7 @@ typedef struct
 static url_cache cache[URL_CACHE];
 
 static void
-reset_url_cache()
+reset_url_cache(void)
 { int i;
   url_cache *c = cache;
 
@@ -2560,7 +2560,7 @@ static prop dtd_props[] =
 
 
 static void
-initprops()
+initprops(void)
 { static int done = FALSE;
 
   if ( !done )

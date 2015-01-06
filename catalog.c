@@ -219,7 +219,7 @@ wgetenv(const char *name)
 
 
 static void
-init_catalog()
+init_catalog(void)
 { static int done = FALSE;
 
   LOCK();

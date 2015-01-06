@@ -35,7 +35,7 @@
 char *program;
 
 static void
-usage()
+usage(void)
 { fprintf(stderr, "Usage: %s [-xml|sgml] file.dtd\n", program);
 }
 
